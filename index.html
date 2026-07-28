@@ -207,6 +207,21 @@
     cursor:pointer;
   }
   .url-hint{margin-top:8px; font-size:10.5px; color:#C9573F; font-weight:700; line-height:1.4; text-align:left;}
+  .reset-link{
+    display:block; margin-top:10px; font-size:11px; font-weight:800;
+    color:#B0A183; text-decoration:none;
+  }
+  .reset-link:hover{color:var(--sky);}
+  .setup-steps{font-size:14px; font-weight:700; color:#8B7A5C; line-height:1.75; margin:0 0 18px;}
+  .setup-steps code{background:#FFF3D6; padding:2px 6px; border-radius:6px; color:#2C2013;}
+  .setup-steps a{color:var(--sky);}
+  .bin-input{
+    width:100%; padding:12px 14px; border-radius:12px; border:2px solid #EFE0BE;
+    font-family:'Nunito',sans-serif; font-size:15px; font-weight:600; color:var(--ink);
+    background:#FFFCF5; margin-bottom:10px;
+  }
+  .bin-input:focus{outline:none; border-color:var(--sky);}
+  .setup-error{color:#C9573F; font-size:13px; font-weight:700; margin:-2px 0 12px;}
 
   .board{
     position:relative;
@@ -305,7 +320,7 @@
   const params = new URLSearchParams(window.location.search);
   const isSubmit = params.get('view') === 'submit';
   const QUESTION = "당신은 어떤 사람인가요?";
-  const STORAGE_PREFIX = "classroomwall:";
+  const LS_BIN_KEY = 'classroomwall_bin_id';
   const NOTE_COLORS = [
     {bg:'#FFE39A', pin:'#c0392b'},
     {bg:'#FFC9BE', pin:'#8B3A2B'},
@@ -324,9 +339,28 @@
     return (Math.random()*10 - 5).toFixed(1);
   }
 
+  function binUrl(id){
+    return 'https://json.extendsclass.com/bin/' + encodeURIComponent(id);
+  }
+
   // ---------------- SUBMIT VIEW ----------------
   function renderSubmit(){
+    const binId = params.get('bin');
     const app = document.getElementById('app');
+
+    if(!binId){
+      app.innerHTML = `
+        <div class="submit-wrap">
+          <div class="submit-card">
+            <span class="eyebrow">연결 오류</span>
+            <h1 class="question-title">QR코드 링크에 문제가 있어요</h1>
+            <p class="anon-note">화면 쪽에서 QR코드를 다시 스캔해주세요</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
     app.innerHTML = `
       <div class="submit-wrap">
         <div class="submit-card" id="card">
@@ -350,14 +384,22 @@
       btn.disabled = true;
       btn.textContent = '전송 중...';
       try{
-        const key = STORAGE_PREFIX + Date.now() + '-' + Math.random().toString(36).slice(2,8);
-        const result = await window.storage.set(key, JSON.stringify({text, ts: Date.now()}), true);
-        if(!result){ throw new Error('저장 실패'); }
+        const getRes = await fetch(binUrl(binId));
+        if(!getRes.ok) throw new Error('bin fetch failed');
+        const data = await getRes.json();
+        const answers = Array.isArray(data.answers) ? data.answers : [];
+        answers.push({text, ts: Date.now()});
+        const putRes = await fetch(binUrl(binId), {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({answers})
+        });
+        if(!putRes.ok) throw new Error('bin update failed');
         renderSuccess();
       }catch(e){
         btn.disabled = false;
         btn.textContent = '화면에 띄우기';
-        alert('전송에 실패했어요. 다시 시도해주세요.');
+        alert('전송에 실패했어요. 인터넷 연결을 확인하고 다시 시도해주세요.');
       }
     });
   }
@@ -376,19 +418,6 @@
   }
 
   // ---------------- SCREEN VIEW ----------------
-  const BASE_URL_KEY = STORAGE_PREFIX + 'baseUrl';
-  let currentBaseUrl = null;
-
-  function buildSubmitUrl(baseHref){
-    try{
-      const url = new URL(baseHref);
-      url.searchParams.set('view','submit');
-      return url.toString();
-    }catch(e){
-      return baseHref;
-    }
-  }
-
   function cleanCurrentHref(){
     try{
       const url = new URL(window.location.href);
@@ -400,12 +429,20 @@
     }
   }
 
-  function generateQr(baseHref){
+  function buildSubmitLink(binId){
+    const url = new URL(cleanCurrentHref());
+    url.searchParams.set('view','submit');
+    url.searchParams.set('bin', binId);
+    return url.toString();
+  }
+
+  function generateQr(binId){
     const holder = document.getElementById('qrcode');
+    if(!holder) return;
     holder.innerHTML = '';
     try{
       new QRCode(holder, {
-        text: buildSubmitUrl(baseHref),
+        text: buildSubmitLink(binId),
         width: 140,
         height: 140,
         colorDark: '#3B2A1E',
@@ -416,7 +453,49 @@
     }
   }
 
-  function renderScreen(){
+  function renderSetup(errorMsg){
+    const app = document.getElementById('app');
+    app.innerHTML = `
+      <div class="submit-wrap">
+        <div class="submit-card">
+          <span class="eyebrow">처음 한 번만 설정</span>
+          <h1 class="question-title">답변 저장 공간을 연결해주세요</h1>
+          <p class="setup-steps">
+            1. <a href="https://extendsclass.com/json-storage.html" target="_blank" rel="noopener">extendsclass.com/json-storage.html</a> 접속<br>
+            2. JSON 입력창에 <code>{"answers":[]}</code> 입력<br>
+            3. <b>Save</b> 버튼 클릭 후 나오는 <b>Bin ID</b> 복사<br>
+            4. 아래 칸에 붙여넣고 저장
+          </p>
+          <input type="text" id="binIdInput" class="bin-input" placeholder="Bin ID 붙여넣기 (예: 64f1a2b3c4d5)">
+          ${errorMsg ? `<p class="setup-error">${escapeHtml(errorMsg)}</p>` : ''}
+          <button class="submit-btn" id="binSaveBtn">저장하고 시작하기</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('binSaveBtn').addEventListener('click', async ()=>{
+      const val = document.getElementById('binIdInput').value.trim();
+      if(!val) return;
+      const btn = document.getElementById('binSaveBtn');
+      btn.disabled = true;
+      btn.textContent = '확인 중...';
+      try{
+        const res = await fetch(binUrl(val));
+        if(!res.ok) throw new Error('not found');
+        await res.json();
+        localStorage.setItem(LS_BIN_KEY, val);
+        renderScreen(val);
+      }catch(e){
+        renderSetup('Bin ID를 찾을 수 없어요. extendsclass.com에서 만든 ID가 맞는지 확인해주세요.');
+      }
+    });
+  }
+
+  let lastCount = 0;
+  let pollTimer = null;
+
+  function renderScreen(binId){
+    if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+    lastCount = 0;
     const app = document.getElementById('app');
     app.innerHTML = `
       <div class="screen-wrap">
@@ -430,11 +509,7 @@
             <div id="qrcode"></div>
             <div class="qr-label">📱 스캔해서 참여</div>
             <div class="qr-sub">무기명 · 실시간 반영</div>
-            <div class="url-config">
-              <input type="text" id="baseUrlInput" placeholder="실제 접속 주소를 입력 (예: https://yourdomain.com/wall.html)">
-              <button id="baseUrlBtn">QR 다시 만들기</button>
-              <div class="url-hint">⚠️ 이 파일이 인터넷에 올라가 있는 실제 주소를 넣어야 다른 사람 휴대폰에서 열려요</div>
-            </div>
+            <a href="#" id="resetBinLink" class="reset-link">⚙️ 저장소 다시 설정</a>
           </div>
         </div>
         <div class="board">
@@ -446,70 +521,42 @@
       </div>
     `;
 
-    const input = document.getElementById('baseUrlInput');
-    const saveBtn = document.getElementById('baseUrlBtn');
+    generateQr(binId);
 
-    (async ()=>{
-      let saved = null;
-      try{
-        const r = await window.storage.get(BASE_URL_KEY, true);
-        if(r && r.value) saved = r.value;
-      }catch(e){ /* no saved url yet */ }
-
-      currentBaseUrl = saved || cleanCurrentHref();
-      input.value = currentBaseUrl;
-      generateQr(currentBaseUrl);
-    })();
-
-    saveBtn.addEventListener('click', async ()=>{
-      const val = input.value.trim();
-      if(!val) return;
-      currentBaseUrl = val;
-      generateQr(currentBaseUrl);
-      try{
-        await window.storage.set(BASE_URL_KEY, val, true);
-      }catch(e){ /* saving is best-effort */ }
+    document.getElementById('resetBinLink').addEventListener('click', (e)=>{
+      e.preventDefault();
+      if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+      localStorage.removeItem(LS_BIN_KEY);
+      renderSetup();
     });
 
-    loadAnswers();
-    setInterval(loadAnswers, 3000);
+    loadAnswers(binId);
+    pollTimer = setInterval(()=>loadAnswers(binId), 3000);
   }
 
-  let renderedKeys = new Set();
-
-  async function loadAnswers(){
+  async function loadAnswers(binId){
     const wrap = document.getElementById('notesWrap');
+    if(!wrap) return;
     try{
-      const listResult = await window.storage.list(STORAGE_PREFIX, true);
-      const keys = (listResult && listResult.keys) ? listResult.keys : [];
-      if(keys.length === 0){
-        if(renderedKeys.size === 0){
+      const res = await fetch(binUrl(binId));
+      if(!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      const answers = Array.isArray(data.answers) ? data.answers : [];
+
+      if(answers.length <= lastCount){
+        if(answers.length === 0 && !wrap.querySelector('.empty-msg')){
           wrap.innerHTML = '<div class="empty-msg">아직 답변이 없어요. QR코드를 스캔해서 첫 답변을 남겨보세요 ✏️</div>';
         }
         return;
       }
 
-      const newKeys = keys.filter(k => !renderedKeys.has(k));
-      if(newKeys.length === 0) return;
-
-      const entries = [];
-      for(const k of newKeys){
-        try{
-          const r = await window.storage.get(k, true);
-          if(r && r.value){
-            const data = JSON.parse(r.value);
-            entries.push(data);
-          }
-        }catch(e){ /* skip unreadable key */ }
-        renderedKeys.add(k);
-      }
-
-      entries.sort((a,b)=> a.ts - b.ts);
-
       const emptyMsg = wrap.querySelector('.empty-msg');
       if(emptyMsg) emptyMsg.remove();
 
-      entries.forEach(entry=>{
+      const newOnes = answers.slice(lastCount);
+      lastCount = answers.length;
+
+      newOnes.forEach(entry=>{
         const color = NOTE_COLORS[Math.floor(Math.random()*NOTE_COLORS.length)];
         const el = document.createElement('div');
         el.className = 'note';
@@ -523,12 +570,16 @@
         wrap.appendChild(el);
       });
     }catch(e){
-      // storage read failed; keep prior state, try again on next interval
       console.error('load error', e);
     }
   }
 
-  if(isSubmit){ renderSubmit(); } else { renderScreen(); }
+  if(isSubmit){
+    renderSubmit();
+  }else{
+    const savedBin = localStorage.getItem(LS_BIN_KEY);
+    if(savedBin){ renderScreen(savedBin); } else { renderSetup(); }
+  }
 })();
 </script>
 </body>
