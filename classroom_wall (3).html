@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>당신은 어떤 사람인가요?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --sunlight-1:#FFF8E4;
+    --sunlight-2:#FFE8A3;
+    --cork:#C89B6A;
+    --cork-dark:#A97A4B;
+    --ink:#3B2A1E;
+    --coral:#FF6F59;
+    --sky:#3FA7C6;
+    --mustard:#F0AC2B;
+    --mint:#4FB477;
+    --lav:#9B7FE0;
+    --paper:#FFFDF8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:'Nunito',sans-serif;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(255,255,255,.9), transparent 45%),
+      linear-gradient(180deg, var(--sunlight-1) 0%, var(--sunlight-2) 100%);
+    color:var(--ink);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  .display-font{font-family:'Baloo 2', sans-serif;}
+
+  /* ---------- SUBMIT VIEW ---------- */
+  .submit-wrap{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .submit-card{
+    background:var(--paper);
+    width:100%;
+    max-width:440px;
+    border-radius:28px;
+    padding:36px 30px 30px;
+    box-shadow:0 18px 40px rgba(169,122,75,.25), 0 2px 0 rgba(255,255,255,.6) inset;
+    position:relative;
+    border:3px solid #fff;
+  }
+  .submit-card::before{
+    content:"";
+    position:absolute;
+    top:-14px; left:50%;
+    transform:translateX(-50%) rotate(-6deg);
+    width:26px; height:26px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fff, var(--coral) 60%, #c9412f 100%);
+    box-shadow:0 4px 8px rgba(0,0,0,.25);
+  }
+  .eyebrow{
+    display:inline-block;
+    font-weight:800;
+    font-size:13px;
+    letter-spacing:.06em;
+    color:var(--cork-dark);
+    background:#FFF3D6;
+    padding:5px 12px;
+    border-radius:999px;
+    margin-bottom:14px;
+  }
+  .question-title{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size:28px;
+    line-height:1.3;
+    margin:0 0 22px;
+    color:#2C2013;
+  }
+  textarea{
+    width:100%;
+    min-height:110px;
+    border-radius:16px;
+    border:2px solid #EFE0BE;
+    background:#FFFCF5;
+    padding:14px 16px;
+    font-family:'Nunito',sans-serif;
+    font-size:16px;
+    font-weight:600;
+    color:var(--ink);
+    resize:vertical;
+    transition:border-color .15s ease;
+  }
+  textarea:focus{outline:none; border-color:var(--sky);}
+  .char-row{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:6px; font-size:12px; color:#9A8768; font-weight:700;
+  }
+  .submit-btn{
+    margin-top:18px;
+    width:100%;
+    padding:15px 18px;
+    border:none;
+    border-radius:16px;
+    background:linear-gradient(180deg, #FF8567, var(--coral));
+    color:#fff;
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size:18px;
+    cursor:pointer;
+    box-shadow:0 8px 0 #C9412F, 0 12px 20px rgba(255,111,89,.35);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .submit-btn:active{transform:translateY(6px); box-shadow:0 2px 0 #C9412F, 0 4px 10px rgba(255,111,89,.3);}
+  .submit-btn:disabled{opacity:.6; cursor:not-allowed;}
+  .anon-note{
+    margin-top:14px;
+    font-size:12.5px;
+    color:#9A8768;
+    font-weight:700;
+    text-align:center;
+  }
+  .success-view{
+    text-align:center;
+    padding:20px 0 6px;
+  }
+  .success-badge{
+    width:64px;height:64px;border-radius:50%;
+    background:linear-gradient(180deg,#7BD79A,var(--mint));
+    display:flex;align-items:center;justify-content:center;
+    margin:0 auto 16px;
+    box-shadow:0 8px 0 #349159;
+    font-size:30px; color:#fff;
+  }
+  .success-title{font-family:'Baloo 2'; font-weight:700; font-size:22px; margin:0 0 6px;}
+  .success-sub{font-size:14px; color:#8B7A5C; font-weight:700; margin:0 0 22px;}
+  .again-btn{
+    background:none; border:2px solid var(--sky); color:var(--sky);
+    font-family:'Baloo 2'; font-weight:700; font-size:15px;
+    padding:11px 20px; border-radius:14px; cursor:pointer;
+  }
+
+  /* ---------- SCREEN (WALL) VIEW ---------- */
+  .screen-wrap{
+    min-height:100vh;
+    padding:34px 5vw 60px;
+  }
+  .top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:24px;
+    margin-bottom:26px;
+  }
+  .headline{
+    max-width:640px;
+  }
+  .headline .eyebrow{margin-bottom:10px;}
+  .headline h1{
+    font-family:'Baloo 2';
+    font-size:clamp(30px,4vw,46px);
+    line-height:1.2;
+    margin:0;
+    color:#2C2013;
+  }
+  .headline p{
+    margin:10px 0 0;
+    font-weight:700;
+    color:#8B7A5C;
+    font-size:15px;
+  }
+  .qr-card{
+    background:var(--paper);
+    border-radius:22px;
+    padding:16px 18px 14px;
+    box-shadow:0 14px 30px rgba(169,122,75,.22);
+    text-align:center;
+    border:3px solid #fff;
+    min-width:180px;
+  }
+  .qr-card #qrcode{
+    display:flex; justify-content:center; margin-bottom:8px;
+  }
+  .qr-card #qrcode img{border-radius:10px;}
+  .qr-label{
+    font-family:'Baloo 2';
+    font-weight:700;
+    font-size:14px;
+    color:var(--cork-dark);
+  }
+  .qr-sub{font-size:11px; color:#B0A183; font-weight:700; margin-top:2px;}
+  .url-config{margin-top:12px; padding-top:12px; border-top:1px dashed #EFE0BE;}
+  .url-config input{
+    width:100%; padding:8px 10px; border-radius:10px; border:2px solid #EFE0BE;
+    font-family:'Nunito',sans-serif; font-size:12px; font-weight:700; color:var(--ink);
+    background:#FFFCF5;
+  }
+  .url-config input:focus{outline:none; border-color:var(--sky);}
+  .url-config button{
+    margin-top:8px; width:100%; padding:8px 10px; border:none; border-radius:10px;
+    background:var(--sky); color:#fff; font-family:'Baloo 2'; font-weight:700; font-size:13px;
+    cursor:pointer;
+  }
+  .url-hint{margin-top:8px; font-size:10.5px; color:#C9573F; font-weight:700; line-height:1.4; text-align:left;}
+  .reset-link{
+    display:block; margin-top:10px; font-size:11px; font-weight:800;
+    color:#B0A183; text-decoration:none;
+  }
+  .reset-link:hover{color:var(--sky);}
+  .setup-steps{font-size:14px; font-weight:700; color:#8B7A5C; line-height:1.75; margin:0 0 18px;}
+  .setup-steps code{background:#FFF3D6; padding:2px 6px; border-radius:6px; color:#2C2013;}
+  .setup-steps a{color:var(--sky);}
+  .bin-input{
+    width:100%; padding:12px 14px; border-radius:12px; border:2px solid #EFE0BE;
+    font-family:'Nunito',sans-serif; font-size:15px; font-weight:600; color:var(--ink);
+    background:#FFFCF5; margin-bottom:10px;
+  }
+  .bin-input:focus{outline:none; border-color:var(--sky);}
+  .setup-error{color:#C9573F; font-size:13px; font-weight:700; margin:-2px 0 12px;}
+
+  .board{
+    position:relative;
+    background:
+      radial-gradient(circle at 8% 12%, rgba(255,255,255,.10) 0, transparent 3%),
+      radial-gradient(circle at 32% 68%, rgba(255,255,255,.08) 0, transparent 2.4%),
+      radial-gradient(circle at 61% 22%, rgba(255,255,255,.09) 0, transparent 2.6%),
+      radial-gradient(circle at 85% 55%, rgba(255,255,255,.08) 0, transparent 2.4%),
+      radial-gradient(circle at 47% 90%, rgba(255,255,255,.08) 0, transparent 2.4%),
+      linear-gradient(180deg, var(--cork) 0%, var(--cork-dark) 100%);
+    border-radius:26px;
+    min-height:56vh;
+    padding:34px;
+    box-shadow:inset 0 3px 14px rgba(0,0,0,.28), 0 20px 40px rgba(120,84,45,.28);
+  }
+  .board::before{
+    content:"";
+    position:absolute; inset:10px;
+    border:3px dashed rgba(255,255,255,.18);
+    border-radius:18px;
+    pointer-events:none;
+  }
+  .notes-wrap{
+    display:flex;
+    flex-wrap:wrap;
+    gap:22px 20px;
+    position:relative;
+    z-index:1;
+  }
+  .empty-msg{
+    color:rgba(255,247,230,.75);
+    font-weight:800;
+    font-family:'Baloo 2';
+    font-size:18px;
+    text-align:center;
+    width:100%;
+    padding:60px 0;
+  }
+  .note{
+    background:var(--n-color, #FFE39A);
+    width:210px;
+    min-height:130px;
+    border-radius:6px;
+    padding:16px 16px 14px;
+    box-shadow:0 10px 18px rgba(0,0,0,.28);
+    position:relative;
+    font-weight:700;
+    font-size:15px;
+    line-height:1.45;
+    color:#2C2013;
+    transform:rotate(var(--n-rot,0deg));
+    animation:pin-in .45s cubic-bezier(.2,1.4,.4,1) both;
+    word-break:break-word;
+  }
+  .note::before{
+    content:"";
+    position:absolute;
+    top:-10px; left:50%;
+    transform:translateX(-50%);
+    width:18px; height:18px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fff, var(--pin-color,#c0392b) 60%, #7d2418 100%);
+    box-shadow:0 3px 6px rgba(0,0,0,.35);
+  }
+  @keyframes pin-in{
+    0%{opacity:0; transform:translateY(-26px) rotate(var(--n-rot,0deg)) scale(.85);}
+    100%{opacity:1; transform:translateY(0) rotate(var(--n-rot,0deg)) scale(1);}
+  }
+  .note-time{
+    display:block;
+    margin-top:10px;
+    font-size:11px;
+    font-weight:800;
+    opacity:.55;
+  }
+  .footer-note{
+    text-align:center;
+    margin-top:18px;
+    font-size:12px;
+    font-weight:700;
+    color:#B0A183;
+  }
+  @media (max-width:640px){
+    .top-row{flex-direction:column;}
+    .board{padding:20px;}
+    .note{width:100%;}
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const isSubmit = params.get('view') === 'submit';
+  const QUESTION = "당신은 어떤 사람인가요?";
+  const LS_DB_KEY = 'classroomwall_db_url';
+  const NOTE_COLORS = [
+    {bg:'#FFE39A', pin:'#c0392b'},
+    {bg:'#FFC9BE', pin:'#8B3A2B'},
+    {bg:'#CDEFDA', pin:'#2F7A4C'},
+    {bg:'#CFEAF3', pin:'#1F6E86'},
+    {bg:'#E7DBFF', pin:'#5B3FA0'}
+  ];
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function randRot(){
+    return (Math.random()*10 - 5).toFixed(1);
+  }
+
+  function normalizeDbUrl(url){
+    return url.trim().replace(/\/$/, '');
+  }
+
+  function answersUrl(dbUrl){
+    return normalizeDbUrl(dbUrl) + '/answers.json';
+  }
+
+  // ---------------- SUBMIT VIEW ----------------
+  function renderSubmit(){
+    const dbUrl = params.get('db');
+    const app = document.getElementById('app');
+
+    if(!dbUrl){
+      app.innerHTML = `
+        <div class="submit-wrap">
+          <div class="submit-card">
+            <span class="eyebrow">연결 오류</span>
+            <h1 class="question-title">QR코드 링크에 문제가 있어요</h1>
+            <p class="anon-note">화면 쪽에서 QR코드를 다시 스캔해주세요</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    app.innerHTML = `
+      <div class="submit-wrap">
+        <div class="submit-card" id="card">
+          <span class="eyebrow">현장 투표</span>
+          <h1 class="question-title">${escapeHtml(QUESTION)}</h1>
+          <textarea id="answerInput" maxlength="200" placeholder="자유롭게 적어주세요..."></textarea>
+          <div class="char-row"><span id="charCount">0 / 200</span><span>무기명으로 전송돼요</span></div>
+          <button class="submit-btn" id="submitBtn">화면에 띄우기</button>
+          <p class="anon-note">🙈 누가 썼는지는 표시되지 않아요</p>
+        </div>
+      </div>
+    `;
+    const input = document.getElementById('answerInput');
+    const btn = document.getElementById('submitBtn');
+    const count = document.getElementById('charCount');
+    input.addEventListener('input', ()=>{ count.textContent = input.value.length + ' / 200'; });
+
+    btn.addEventListener('click', async ()=>{
+      const text = input.value.trim();
+      if(!text){ input.focus(); return; }
+      btn.disabled = true;
+      btn.textContent = '전송 중...';
+      try{
+        const res = await fetch(answersUrl(dbUrl), {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({text, ts: Date.now()})
+        });
+        if(!res.ok) throw new Error('write failed');
+        renderSuccess();
+      }catch(e){
+        btn.disabled = false;
+        btn.textContent = '화면에 띄우기';
+        alert('전송에 실패했어요. 인터넷 연결을 확인하고 다시 시도해주세요.');
+      }
+    });
+  }
+
+  function renderSuccess(){
+    const card = document.getElementById('card');
+    card.innerHTML = `
+      <div class="success-view">
+        <div class="success-badge">✓</div>
+        <p class="success-title">화면에 올라갔어요!</p>
+        <p class="success-sub">잠시 후 스크린에서 확인해보세요</p>
+        <button class="again-btn" id="againBtn">한 번 더 남기기</button>
+      </div>
+    `;
+    document.getElementById('againBtn').addEventListener('click', renderSubmit);
+  }
+
+  // ---------------- SCREEN VIEW ----------------
+  function cleanCurrentHref(){
+    try{
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.hash = '';
+      return url.toString();
+    }catch(e){
+      return window.location.href;
+    }
+  }
+
+  function buildSubmitLink(dbUrl){
+    const url = new URL(cleanCurrentHref());
+    url.searchParams.set('view','submit');
+    url.searchParams.set('db', dbUrl);
+    return url.toString();
+  }
+
+  function generateQr(dbUrl){
+    const holder = document.getElementById('qrcode');
+    if(!holder) return;
+    holder.innerHTML = '';
+    try{
+      new QRCode(holder, {
+        text: buildSubmitLink(dbUrl),
+        width: 140,
+        height: 140,
+        colorDark: '#3B2A1E',
+        colorLight: '#FFFDF8'
+      });
+    }catch(e){
+      holder.innerHTML = '<p style="font-size:12px;color:#999;">QR 생성 실패</p>';
+    }
+  }
+
+  function renderSetup(errorMsg){
+    const app = document.getElementById('app');
+    app.innerHTML = `
+      <div class="submit-wrap">
+        <div class="submit-card">
+          <span class="eyebrow">처음 한 번만 설정</span>
+          <h1 class="question-title">답변 저장 공간을 연결해주세요</h1>
+          <p class="setup-steps">
+            1. <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> 접속 (구글 계정 로그인)<br>
+            2. <b>프로젝트 추가</b> → 이름 아무거나 입력 → 만들기 (애널리틱스는 꺼도 됨)<br>
+            3. 왼쪽 메뉴 <b>Build → Realtime Database</b> → <b>데이터베이스 만들기</b><br>
+            4. 보안 규칙은 <b>테스트 모드</b>로 시작 선택<br>
+            5. 생성 후 상단에 보이는 주소 복사 (예: <code>https://이름-default-rtdb.firebaseio.com</code>)<br>
+            6. 아래 칸에 붙여넣고 저장
+          </p>
+          <input type="text" id="dbUrlInput" class="bin-input" placeholder="데이터베이스 주소 붙여넣기 (https://...firebaseio.com)">
+          ${errorMsg ? `<p class="setup-error">${escapeHtml(errorMsg)}</p>` : ''}
+          <button class="submit-btn" id="dbSaveBtn">저장하고 시작하기</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('dbSaveBtn').addEventListener('click', async ()=>{
+      const raw = document.getElementById('dbUrlInput').value.trim();
+      if(!raw) return;
+      const val = normalizeDbUrl(raw);
+      const btn = document.getElementById('dbSaveBtn');
+      btn.disabled = true;
+      btn.textContent = '확인 중...';
+      try{
+        const res = await fetch(val + '/.json');
+        if(!res.ok) throw new Error('not reachable');
+        localStorage.setItem(LS_DB_KEY, val);
+        renderScreen(val);
+      }catch(e){
+        renderSetup('연결할 수 없어요. 주소가 정확한지, 테스트 모드로 만들었는지 확인해주세요.');
+      }
+    });
+  }
+
+  let renderedKeys = new Set();
+  let pollTimer = null;
+
+  function renderScreen(dbUrl){
+    if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+    renderedKeys = new Set();
+    const app = document.getElementById('app');
+    app.innerHTML = `
+      <div class="screen-wrap">
+        <div class="top-row">
+          <div class="headline">
+            <span class="eyebrow">라이브 현장 투표</span>
+            <h1>${escapeHtml(QUESTION)}</h1>
+            <p>QR코드를 스캔하면 익명으로 답변을 남길 수 있어요</p>
+          </div>
+          <div class="qr-card">
+            <div id="qrcode"></div>
+            <div class="qr-label">📱 스캔해서 참여</div>
+            <div class="qr-sub">무기명 · 실시간 반영</div>
+            <a href="#" id="resetDbLink" class="reset-link">⚙️ 저장소 다시 설정</a>
+          </div>
+        </div>
+        <div class="board">
+          <div class="notes-wrap" id="notesWrap">
+            <div class="empty-msg">아직 답변이 없어요. QR코드를 스캔해서 첫 답변을 남겨보세요 ✏️</div>
+          </div>
+        </div>
+        <p class="footer-note">3초마다 자동으로 새 답변을 불러와요</p>
+      </div>
+    `;
+
+    generateQr(dbUrl);
+
+    document.getElementById('resetDbLink').addEventListener('click', (e)=>{
+      e.preventDefault();
+      if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+      localStorage.removeItem(LS_DB_KEY);
+      renderSetup();
+    });
+
+    loadAnswers(dbUrl);
+    pollTimer = setInterval(()=>loadAnswers(dbUrl), 3000);
+  }
+
+  async function loadAnswers(dbUrl){
+    const wrap = document.getElementById('notesWrap');
+    if(!wrap) return;
+    try{
+      const res = await fetch(answersUrl(dbUrl));
+      if(!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+
+      if(!data){
+        if(renderedKeys.size === 0 && !wrap.querySelector('.empty-msg')){
+          wrap.innerHTML = '<div class="empty-msg">아직 답변이 없어요. QR코드를 스캔해서 첫 답변을 남겨보세요 ✏️</div>';
+        }
+        return;
+      }
+
+      const entries = Object.keys(data)
+        .filter(k => !renderedKeys.has(k))
+        .map(k => ({key:k, ...data[k]}))
+        .sort((a,b)=> (a.ts||0) - (b.ts||0));
+
+      if(entries.length === 0) return;
+
+      const emptyMsg = wrap.querySelector('.empty-msg');
+      if(emptyMsg) emptyMsg.remove();
+
+      entries.forEach(entry=>{
+        renderedKeys.add(entry.key);
+        const color = NOTE_COLORS[Math.floor(Math.random()*NOTE_COLORS.length)];
+        const el = document.createElement('div');
+        el.className = 'note';
+        el.style.setProperty('--n-color', color.bg);
+        el.style.setProperty('--pin-color', color.pin);
+        el.style.setProperty('--n-rot', randRot()+'deg');
+        const time = new Date(entry.ts || Date.now());
+        const hh = String(time.getHours()).padStart(2,'0');
+        const mm = String(time.getMinutes()).padStart(2,'0');
+        el.innerHTML = `${escapeHtml(entry.text || '')}<span class="note-time">${hh}:${mm}</span>`;
+        wrap.appendChild(el);
+      });
+    }catch(e){
+      console.error('load error', e);
+    }
+  }
+
+  if(isSubmit){
+    renderSubmit();
+  }else{
+    const savedDb = localStorage.getItem(LS_DB_KEY);
+    if(savedDb){ renderScreen(savedDb); } else { renderSetup(); }
+  }
+})();
+</script>
+</body>
+</html>
