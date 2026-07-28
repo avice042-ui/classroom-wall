@@ -320,7 +320,7 @@
   const params = new URLSearchParams(window.location.search);
   const isSubmit = params.get('view') === 'submit';
   const QUESTION = "당신은 어떤 사람인가요?";
-  const LS_BIN_KEY = 'classroomwall_bin_id';
+  const LS_DB_KEY = 'classroomwall_db_url';
   const NOTE_COLORS = [
     {bg:'#FFE39A', pin:'#c0392b'},
     {bg:'#FFC9BE', pin:'#8B3A2B'},
@@ -339,16 +339,20 @@
     return (Math.random()*10 - 5).toFixed(1);
   }
 
-  function binUrl(id){
-    return 'https://json.extendsclass.com/bin/' + encodeURIComponent(id);
+  function normalizeDbUrl(url){
+    return url.trim().replace(/\/$/, '');
+  }
+
+  function answersUrl(dbUrl){
+    return normalizeDbUrl(dbUrl) + '/answers.json';
   }
 
   // ---------------- SUBMIT VIEW ----------------
   function renderSubmit(){
-    const binId = params.get('bin');
+    const dbUrl = params.get('db');
     const app = document.getElementById('app');
 
-    if(!binId){
+    if(!dbUrl){
       app.innerHTML = `
         <div class="submit-wrap">
           <div class="submit-card">
@@ -384,17 +388,12 @@
       btn.disabled = true;
       btn.textContent = '전송 중...';
       try{
-        const getRes = await fetch(binUrl(binId));
-        if(!getRes.ok) throw new Error('bin fetch failed');
-        const data = await getRes.json();
-        const answers = Array.isArray(data.answers) ? data.answers : [];
-        answers.push({text, ts: Date.now()});
-        const putRes = await fetch(binUrl(binId), {
-          method: 'PUT',
+        const res = await fetch(answersUrl(dbUrl), {
+          method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({answers})
+          body: JSON.stringify({text, ts: Date.now()})
         });
-        if(!putRes.ok) throw new Error('bin update failed');
+        if(!res.ok) throw new Error('write failed');
         renderSuccess();
       }catch(e){
         btn.disabled = false;
@@ -429,20 +428,20 @@
     }
   }
 
-  function buildSubmitLink(binId){
+  function buildSubmitLink(dbUrl){
     const url = new URL(cleanCurrentHref());
     url.searchParams.set('view','submit');
-    url.searchParams.set('bin', binId);
+    url.searchParams.set('db', dbUrl);
     return url.toString();
   }
 
-  function generateQr(binId){
+  function generateQr(dbUrl){
     const holder = document.getElementById('qrcode');
     if(!holder) return;
     holder.innerHTML = '';
     try{
       new QRCode(holder, {
-        text: buildSubmitLink(binId),
+        text: buildSubmitLink(dbUrl),
         width: 140,
         height: 140,
         colorDark: '#3B2A1E',
@@ -461,41 +460,43 @@
           <span class="eyebrow">처음 한 번만 설정</span>
           <h1 class="question-title">답변 저장 공간을 연결해주세요</h1>
           <p class="setup-steps">
-            1. <a href="https://extendsclass.com/json-storage.html" target="_blank" rel="noopener">extendsclass.com/json-storage.html</a> 접속<br>
-            2. JSON 입력창에 <code>{"answers":[]}</code> 입력<br>
-            3. <b>Save</b> 버튼 클릭 후 나오는 <b>Bin ID</b> 복사<br>
-            4. 아래 칸에 붙여넣고 저장
+            1. <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> 접속 (구글 계정 로그인)<br>
+            2. <b>프로젝트 추가</b> → 이름 아무거나 입력 → 만들기 (애널리틱스는 꺼도 됨)<br>
+            3. 왼쪽 메뉴 <b>Build → Realtime Database</b> → <b>데이터베이스 만들기</b><br>
+            4. 보안 규칙은 <b>테스트 모드</b>로 시작 선택<br>
+            5. 생성 후 상단에 보이는 주소 복사 (예: <code>https://이름-default-rtdb.firebaseio.com</code>)<br>
+            6. 아래 칸에 붙여넣고 저장
           </p>
-          <input type="text" id="binIdInput" class="bin-input" placeholder="Bin ID 붙여넣기 (예: 64f1a2b3c4d5)">
+          <input type="text" id="dbUrlInput" class="bin-input" placeholder="데이터베이스 주소 붙여넣기 (https://...firebaseio.com)">
           ${errorMsg ? `<p class="setup-error">${escapeHtml(errorMsg)}</p>` : ''}
-          <button class="submit-btn" id="binSaveBtn">저장하고 시작하기</button>
+          <button class="submit-btn" id="dbSaveBtn">저장하고 시작하기</button>
         </div>
       </div>
     `;
-    document.getElementById('binSaveBtn').addEventListener('click', async ()=>{
-      const val = document.getElementById('binIdInput').value.trim();
-      if(!val) return;
-      const btn = document.getElementById('binSaveBtn');
+    document.getElementById('dbSaveBtn').addEventListener('click', async ()=>{
+      const raw = document.getElementById('dbUrlInput').value.trim();
+      if(!raw) return;
+      const val = normalizeDbUrl(raw);
+      const btn = document.getElementById('dbSaveBtn');
       btn.disabled = true;
       btn.textContent = '확인 중...';
       try{
-        const res = await fetch(binUrl(val));
-        if(!res.ok) throw new Error('not found');
-        await res.json();
-        localStorage.setItem(LS_BIN_KEY, val);
+        const res = await fetch(val + '/.json');
+        if(!res.ok) throw new Error('not reachable');
+        localStorage.setItem(LS_DB_KEY, val);
         renderScreen(val);
       }catch(e){
-        renderSetup('Bin ID를 찾을 수 없어요. extendsclass.com에서 만든 ID가 맞는지 확인해주세요.');
+        renderSetup('연결할 수 없어요. 주소가 정확한지, 테스트 모드로 만들었는지 확인해주세요.');
       }
     });
   }
 
-  let lastCount = 0;
+  let renderedKeys = new Set();
   let pollTimer = null;
 
-  function renderScreen(binId){
+  function renderScreen(dbUrl){
     if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
-    lastCount = 0;
+    renderedKeys = new Set();
     const app = document.getElementById('app');
     app.innerHTML = `
       <div class="screen-wrap">
@@ -509,7 +510,7 @@
             <div id="qrcode"></div>
             <div class="qr-label">📱 스캔해서 참여</div>
             <div class="qr-sub">무기명 · 실시간 반영</div>
-            <a href="#" id="resetBinLink" class="reset-link">⚙️ 저장소 다시 설정</a>
+            <a href="#" id="resetDbLink" class="reset-link">⚙️ 저장소 다시 설정</a>
           </div>
         </div>
         <div class="board">
@@ -521,52 +522,56 @@
       </div>
     `;
 
-    generateQr(binId);
+    generateQr(dbUrl);
 
-    document.getElementById('resetBinLink').addEventListener('click', (e)=>{
+    document.getElementById('resetDbLink').addEventListener('click', (e)=>{
       e.preventDefault();
       if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
-      localStorage.removeItem(LS_BIN_KEY);
+      localStorage.removeItem(LS_DB_KEY);
       renderSetup();
     });
 
-    loadAnswers(binId);
-    pollTimer = setInterval(()=>loadAnswers(binId), 3000);
+    loadAnswers(dbUrl);
+    pollTimer = setInterval(()=>loadAnswers(dbUrl), 3000);
   }
 
-  async function loadAnswers(binId){
+  async function loadAnswers(dbUrl){
     const wrap = document.getElementById('notesWrap');
     if(!wrap) return;
     try{
-      const res = await fetch(binUrl(binId));
+      const res = await fetch(answersUrl(dbUrl));
       if(!res.ok) throw new Error('fetch failed');
       const data = await res.json();
-      const answers = Array.isArray(data.answers) ? data.answers : [];
 
-      if(answers.length <= lastCount){
-        if(answers.length === 0 && !wrap.querySelector('.empty-msg')){
+      if(!data){
+        if(renderedKeys.size === 0 && !wrap.querySelector('.empty-msg')){
           wrap.innerHTML = '<div class="empty-msg">아직 답변이 없어요. QR코드를 스캔해서 첫 답변을 남겨보세요 ✏️</div>';
         }
         return;
       }
 
+      const entries = Object.keys(data)
+        .filter(k => !renderedKeys.has(k))
+        .map(k => ({key:k, ...data[k]}))
+        .sort((a,b)=> (a.ts||0) - (b.ts||0));
+
+      if(entries.length === 0) return;
+
       const emptyMsg = wrap.querySelector('.empty-msg');
       if(emptyMsg) emptyMsg.remove();
 
-      const newOnes = answers.slice(lastCount);
-      lastCount = answers.length;
-
-      newOnes.forEach(entry=>{
+      entries.forEach(entry=>{
+        renderedKeys.add(entry.key);
         const color = NOTE_COLORS[Math.floor(Math.random()*NOTE_COLORS.length)];
         const el = document.createElement('div');
         el.className = 'note';
         el.style.setProperty('--n-color', color.bg);
         el.style.setProperty('--pin-color', color.pin);
         el.style.setProperty('--n-rot', randRot()+'deg');
-        const time = new Date(entry.ts);
+        const time = new Date(entry.ts || Date.now());
         const hh = String(time.getHours()).padStart(2,'0');
         const mm = String(time.getMinutes()).padStart(2,'0');
-        el.innerHTML = `${escapeHtml(entry.text)}<span class="note-time">${hh}:${mm}</span>`;
+        el.innerHTML = `${escapeHtml(entry.text || '')}<span class="note-time">${hh}:${mm}</span>`;
         wrap.appendChild(el);
       });
     }catch(e){
@@ -577,8 +582,8 @@
   if(isSubmit){
     renderSubmit();
   }else{
-    const savedBin = localStorage.getItem(LS_BIN_KEY);
-    if(savedBin){ renderScreen(savedBin); } else { renderSetup(); }
+    const savedDb = localStorage.getItem(LS_DB_KEY);
+    if(savedDb){ renderScreen(savedDb); } else { renderSetup(); }
   }
 })();
 </script>
